@@ -161,3 +161,65 @@ Public Function BOLLINGER(inRange As Range, nPeriod As Integer, nK As Double) As
     
     BOLLINGER = calculatedSma
 End Function
+
+'Relative Strength Index
+Public Function RSI(inRange As Range, nPeriod As Integer) As Variant
+
+    Dim avgGain() As Variant
+    Dim avgLoss() As Variant
+    Dim inRangeValue() As Variant
+
+    inRangeValue = inRange.Value
+    avgGain = CopyArrayDimensions(inRangeValue)
+    avgLoss = CopyArrayDimensions(inRangeValue)
+     
+    Dim row As Integer
+    For row = LBound(avgGain, 1) + (nPeriod) To UBound(avgGain, 1)
+        
+        Dim i As Integer
+        Dim thisAvgGain As Variant
+        Dim thisAvgLoss As Variant
+        thisAvgGain = 0
+        thisAvgLoss = 0
+        For i = 0 To nPeriod - 1
+            Dim change As Variant
+            change = inRangeValue(LBound(inRangeValue, 1) + (row - i), LBound(inRangeValue, 2)) - inRangeValue(LBound(inRangeValue, 1) + (row - (i + 1)), LBound(inRangeValue, 2))
+            
+            If (change > 0) Then
+                thisAvgGain = thisAvgGain + change
+            ElseIf (change < 0) Then
+                thisAvgLoss = thisAvgLoss - change  'avgLoss should be +ve, hence subtraction of negative value
+            End If
+            ' if change == 0 then both gain and loss = 0
+            
+        Next i
+        
+        thisAvgGain = thisAvgGain / nPeriod
+        thisAvgLoss = thisAvgLoss / nPeriod
+        
+        avgGain(row, LBound(avgGain, 2)) = thisAvgGain
+        avgLoss(row, LBound(avgLoss, 2)) = thisAvgLoss
+    Next row
+    
+    Dim emaGain() As Variant
+    Dim emaLoss() As Variant
+    emaGain = CopyArrayDimensions(avgGain)
+    emaLoss = CopyArrayDimensions(avgLoss)
+    emaGain = CalculateEMA(avgGain, nPeriod)
+    emaLoss = CalculateEMA(avgLoss, nPeriod)
+    
+    Dim resultArray() As Variant
+    resultArray = CopyArrayDimensions(emaGain)
+    
+    For i = LBound(resultArray, 1) + nPeriod + 1 To UBound(resultArray, 1)
+        If (emaLoss(i, LBound(emaLoss, 2)) = 0) Then
+            resultArray(i, LBound(resultArray, 2)) = 100
+        Else
+            resultArray(i, LBound(resultArray, 2)) = 100 - (100 / (1 + (emaGain(i, LBound(emaGain, 2)) / emaLoss(i, LBound(emaLoss, 2)))))
+        End If
+    Next i
+    
+    RSI = resultArray
+End Function
+
+

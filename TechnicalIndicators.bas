@@ -10,7 +10,7 @@ End Function
 Private Function CalculateSMA(inArray As Variant, nPeriod As Integer) As Variant
 
     Dim vntResult() As Variant
-    ReDim vntResult(UBound(inArray, 1), UBound(inArray, 2))
+    vntResult = CopyArrayDimensions(inArray)
      
     Dim i As Integer
     For i = LBound(inArray, 2) To UBound(inArray, 2)
@@ -106,4 +106,58 @@ Public Function MACD(inRange As Range, nShortPeriod As Integer, nLongPeriod As I
         Next j
     Next i
     MACD = calcMacd
+End Function
+
+'Bollinger Bands
+Public Function BOLLINGER(inRange As Range, nPeriod As Integer, nK As Double) As Variant
+    Dim calculatedSma() As Variant
+    Dim inRangeValue() As Variant
+    inRangeValue = inRange.Value
+    
+    calculatedSma = CalculateSMA(inRangeValue, nPeriod)
+    
+    Dim calculatedStdDev() As Variant
+    calculatedStdDev = CopyArrayDimensions(calculatedSma)
+    
+    Dim i As Integer
+    For i = LBound(calculatedSma, 1) + nPeriod To UBound(calculatedSma, 1)
+        Dim j As Integer
+        Dim sumDist As Variant
+        sumDist = 0
+        For j = 0 To nPeriod
+            Dim dist As Variant
+            dist = inRangeValue((i - j) + LBound(inRangeValue, 1), LBound(inRangeValue, 2)) - calculatedSma(i, LBound(calculatedSma, 2))
+            dist = dist * dist
+            sumDist = sumDist + dist
+        Next j
+        sumDist = sumDist / nPeriod
+        sumDist = Sqr(sumDist)
+        calculatedStdDev(i, LBound(calculatedStdDev, 2)) = sumDist
+    Next i
+    
+    '4 = 4 extra columns: Upper band, Lower band, %b and BandWidth
+    ReDim Preserve calculatedSma(UBound(calculatedSma, 1) - LBound(calculatedSma, 1), (4 + UBound(calculatedStdDev, 2)) - LBound(calculatedStdDev, 2))
+    
+    For j = LBound(calculatedStdDev, 1) To UBound(calculatedStdDev, 1)
+        ' Upper Band
+        calculatedSma(j, 1) = calculatedSma(j, 0) + calculatedStdDev(j, 0) * nK
+        ' Lower Band
+        calculatedSma(j, 2) = calculatedSma(j, 0) - calculatedStdDev(j, 0) * nK
+        '%b
+        Dim bandRange As Variant
+        bandRange = calculatedSma(j, 1) - calculatedSma(j, 2) ' Upper - Lower
+        If (bandRange <> 0) Then
+            calculatedSma(j, 3) = (inRangeValue(j + LBound(inRangeValue, 1), LBound(inRangeValue, 2)) - calculatedSma(j, 2)) / bandRange
+        Else
+            calculatedSma(j, 3) = 0
+        End If
+        'BandWidth
+        If (calculatedSma(j, 0) <> 0) Then
+            calculatedSma(j, 4) = bandRange / calculatedSma(j, 0)
+        Else
+            calculatedSma(j, 4) = 0
+        End If
+    Next j
+    
+    BOLLINGER = calculatedSma
 End Function
